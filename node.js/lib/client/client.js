@@ -68,7 +68,7 @@ Client.prototype.request = function (method, uri /* variable arguments */) {
 
   this._request(options, function (err, response, body) {
     if (err) {
-      return callback(err);
+      return callback && callback(err);
     }
     
     var statusCode, result, error;
@@ -86,14 +86,14 @@ Client.prototype.request = function (method, uri /* variable arguments */) {
       error = new Error('Jitsu requires you to connect to Nodejitsu\'s stack (api.nodejitsu.com)');
       error.statusCode = "403";
       error.result = "";
-      return callback(error);
+      return callback && callback(error);
     }
 
     if (Object.keys(failCodes).indexOf(statusCode) !== -1) {
       error = new Error('Nodejitsu Error (' + statusCode + '): ' + failCodes[statusCode]);
       error.statusCode = statusCode;
       error.result = result;
-      return callback(error);
+      return callback && callback(error);
     }
 
     success(response, result);
@@ -122,7 +122,7 @@ Client.prototype.upload = function (uri, contentType, file, callback, success) {
 
   fs.readFile(file, function (err, data) {
     if (err) {
-      return callback(err);
+      return callback && callback(err);
     }
 
     options = {
@@ -141,7 +141,7 @@ Client.prototype.upload = function (uri, contentType, file, callback, success) {
 
     out = self._request(options, function (err, response, body) {
       if (err) {
-        return callback(err);
+        return callback && callback(err);
       }
 
       var statusCode, result, error;
@@ -156,7 +156,7 @@ Client.prototype.upload = function (uri, contentType, file, callback, success) {
       if (Object.keys(failCodes).indexOf(statusCode) !== -1) {
         error = new Error('Nodejitsu Error (' + statusCode + '): ' + failCodes[statusCode]);
         error.result = result;
-        return callback(error);
+        return callback && callback(error);
       }
 
       success(response, result);

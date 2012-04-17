@@ -75,3 +75,28 @@ Logs.prototype.byUser = function (username, amount, callback) {
     callback(null, result);
   });
 };
+
+//
+// ### function streamByApp (appName, stream)
+// #### @appName {string} Name of the application to retrieve
+// #### @stream {function} Optional stream to pipe to.
+// Return log stream by app.
+//
+Logs.prototype.streamByApp = function (appName, stream) {
+  var appName = defaultUser.call(this, appName),
+      argv = ['logs'].concat(appName.split('/'), 'stream');
+
+  return this.stream('POST', argv, {}, stream);
+};
+
+//
+// ### function streamByUser (username, stream)
+// #### @username {string} Name of user whose logs we wish to retrieve
+// #### @stream {function} Optional stream to pipe to.
+// Return log stream by user.
+//
+Logs.prototype.streamByUser = function (username, stream) {
+  username = username || this.options.get('username');
+
+  return this.stream('POST', ['logs', username, 'stream'], {}, stream);
+};

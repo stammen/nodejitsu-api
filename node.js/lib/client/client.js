@@ -74,6 +74,11 @@ Client.prototype.request = function (method, uri /* variable arguments */) {
 
   self.emit('debug::request', options);
 
+  // Return a stream
+  if (typeof success !== 'function' && typeof callback !== 'function') {
+    return this._request(options);
+  }
+
   this._request(options, function (err, response, body) {
     if (err) {
       return callback(err);
@@ -108,6 +113,27 @@ Client.prototype.request = function (method, uri /* variable arguments */) {
 
     success(response, result);
   });
+};
+
+//
+// ### @private function stream (method, uri, [body], stream)
+// #### @method {string} HTTP method to use
+// #### @uri {Array} Locator for the Remote Resource
+// #### @body {Object} **optional** JSON Request Body
+// #### @stream {stream} Optional stream to pipe to.
+//
+
+Client.prototype.stream = function(method, uri, body, stream) {
+  if (body && typeof body.write === 'function') {
+    stream = body;
+    body = null;
+  }
+
+  var req = this.request(method, uri, body, stream);
+
+  if (stream) req.pipe(stream);
+
+  return req;
 };
 
 //

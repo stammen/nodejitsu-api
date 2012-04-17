@@ -25,4 +25,12 @@ vows.describe('logs').addBatch(makeApiCall(
       })
       .reply(200, {}, { 'x-powered-by': 'Nodejitsu' })
   }
+)).addBatch(makeApiCall(
+  'logs streamByUser myUser',
+  function setup () {
+    nock('http://api.mockjitsu.com')
+      .post('/logs/myUser/stream', {})
+      .reply(200, 'here are some logs\nenjoy them.',
+                  { 'x-powered-by': 'Nodejitsu' })
+  }
 )).export(module);

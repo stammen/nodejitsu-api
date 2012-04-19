@@ -86,7 +86,7 @@ Logs.prototype.streamByApp = function (appName, stream) {
   var appName = defaultUser.call(this, appName),
       argv = ['logs'].concat(appName.split('/'), 'stream');
 
-  return this.stream('POST', argv, {}, stream);
+  return this.stream('GET', argv, null, stream);
 };
 
 //
@@ -98,5 +98,5 @@ Logs.prototype.streamByApp = function (appName, stream) {
 Logs.prototype.streamByUser = function (username, stream) {
   username = username || this.options.get('username');
 
-  return this.stream('POST', ['logs', username, 'stream'], {}, stream);
+  return this.stream('GET', ['logs', username, 'stream'], null, stream);
 };

@@ -29,8 +29,12 @@ vows.describe('logs').addBatch(makeApiCall(
   'logs streamByUser myUser',
   function setup () {
     nock('http://api.mockjitsu.com')
-      .post('/logs/myUser/stream', {})
-      .reply(200, 'here are some logs\nenjoy them.',
-                  { 'x-powered-by': 'Nodejitsu' })
+      .get('/logs/myUser/stream')
+      .reply(200, {
+          app: 'example-app',
+          user: 'myUser',
+          data: 'Testing my app.1334857998687\n',
+          name: 'stdout'
+      }, { 'x-powered-by': 'Nodejitsu' })
   }
 )).export(module);

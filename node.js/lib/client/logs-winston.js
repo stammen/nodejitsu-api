@@ -23,6 +23,28 @@ var Logs = exports.Logs = function (options) {
 util.inherits(Logs, Client);
 
 //
+// ### function _logger (appName, amount, callback)
+// Lazily load winston logger.
+//
+Logs.prototype._logger = function () {
+  if (this.__logger) return this.__logger;
+
+  var winston = require('winston'),
+      url = require('url');
+
+  var logger = new winston.Logger;
+  var uri = url.parse(this.options.get('logServer'));
+
+  logger.add(winston.transports.Http, {
+    ssl: uri.protocol === 'https:',
+    host: uri.host,
+    port: uri.port
+  });
+
+  return this.__logger = logger;
+};
+
+//
 // ### function byApp (appName, amount, callback)
 // #### @appName {string} Name of the application to retrieve
 // #### @amount {number} the number of lines to retrieve
@@ -35,12 +57,14 @@ Logs.prototype.byApp = function (appName, amount, callback) {
       options = {
         from: Date.now() - 24 * 60 * 60 * 1000,
         until: Date.now(),
-        rows: amount
+        rows: amount,
+        path: argv.join('/')
       };
 
-  this.request('POST', argv, options, callback, function (res, result) {
-    callback(null, result.redis || result);
-  }, 'log');
+  return this._logger().query(options, function (err, results) {
+    if (err) return callback(err);
+    return callback(null, results.http.redis);
+  });
 };
 
 //
@@ -66,12 +90,14 @@ Logs.prototype.byUser = function (username, amount, callback) {
   options = {
     from: Date.now() - 24 * 60 * 60 * 1000,
     until: Date.now(),
-    rows: amount
+    rows: amount,
+    path: ['query', username].join('/')
   };
 
-  this.request('POST', ['query', username], options, callback, function (res, result) {
-    callback(null, result.redis || result);
-  }, 'log');
+  return this._logger().query(options, function (err, results) {
+    if (err) return callback(err);
+    return callback(null, results.http.redis);
+  });
 };
 
 //
@@ -81,9 +107,14 @@ Logs.prototype.byUser = function (username, amount, callback) {
 // #### @callback {function} Continuation to pass control to when complete.
 // Retrieves logs for all the applications for the user.
 //
-Logs.prototype.streamByUser = function (username, options) {
-  if (username && typeof username === 'object') {
-    options = username;
+Logs.prototype.streamByUser = function (username, options, callback) {
+  if (!callback) {
+    callback = options;
+    options = null;
+  }
+
+  if (!callback) {
+    callback = username;
     username = null;
   }
 
@@ -93,7 +124,9 @@ Logs.prototype.streamByUser = function (username, options) {
 
   options = options || { start: -1 };
 
-  return this.stream('POST', ['stream', username], options);
+  options.path = ['stream', username].join('/');
+
+  return this._logger().stream(options);
 };
 
 //
@@ -103,11 +136,17 @@ Logs.prototype.streamByUser = function (username, options) {
 // #### @callback {function} Continuation to pass control to when complete.
 // Retrieves streaming logs for a user's application.
 //
-Logs.prototype.streamByApp = function (appName, options) {
+Logs.prototype.streamByApp = function (appName, options, callback) {
+  if (!callback) {
+    callback = options;
+    options = null;
+  }
+
   var appName = defaultUser.call(this, appName),
       argv = ['stream'].concat(appName.split('/'));
 
   options = options || { start: -1 };
+  options.path = argv.join('/');
 
-  return this.stream('POST', argv, options);
+  return this._logger().stream(options);
 };

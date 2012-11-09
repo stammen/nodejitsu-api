@@ -44,15 +44,22 @@ util.inherits(Client, EventEmitter);
 //
 Client.prototype.request = function (method, uri /* variable arguments */) {
   var options, args = Array.prototype.slice.call(arguments),
+      logServer = args[args.length - 1] === 'log' && args.pop(),
       success = args.pop(),
       callback = args.pop(),
       body = typeof args[args.length - 1] === 'object' && !Array.isArray(args[args.length - 1]) && args.pop(),
       encoded = new Buffer(this.options.get('username') + ':' + this.options.get('password')).toString('base64'),
       proxy = this.options.get('proxy');
 
+  var server = logServer
+    ? this.options.get('logServer') || 'https://logs.nodejitsu.com'
+    : this.options.get('remoteUri');
+
+  server = server.replace(/\/+$/g, '');
+
   options = {
     method: method || 'GET',
-    uri: this.options.get('remoteUri') + '/' + uri.join('/'),
+    uri: server + '/' + uri.join('/'),
     headers: {
       'Authorization': 'Basic ' + encoded,
       'Content-Type': 'application/json'
@@ -107,8 +114,73 @@ Client.prototype.request = function (method, uri /* variable arguments */) {
       return callback(error);
     }
 
+
     success(response, result);
   });
+};
+
+//
+// ### function stream (method, uri, options)
+// #### @method {string} HTTP Method
+// #### @uri {Array} Locator for the Remote Resource
+// #### @options {object} Request body.
+// Stream a request from log server.
+//
+Client.prototype.stream = function (method, uri, options) {
+  var options, args = Array.prototype.slice.call(arguments),
+      body = options,
+      encoded,
+      proxy = this.options.get('proxy'),
+      logServer = this.options.get('logServer');
+
+  encoded = new Buffer(this.options.get('username')
+    + ':' + this.options.get('password')).toString('base64');
+
+  logServer = logServer || 'https://logs.nodejitsu.com';
+  logServer = logServer.replace(/\/+$/g, '');
+
+  options = {
+    method: method || 'GET',
+    uri: logServer + '/' + uri.join('/'),
+    headers: {
+      'Authorization': 'Basic ' + encoded,
+      'Content-Type': 'application/json'
+    },
+    timeout: this.options.get('timeout') || 8 * 60 * 1000
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
+  } else if (method !== 'GET') {
+    options.body = '{}';
+  }
+
+  if (proxy) {
+    options.proxy = proxy;
+  }
+
+  this.emit('debug::request', options);
+
+  var req = this._request(options),
+      buff = '';
+
+  req.on('data', function (data) {
+    var data = (buff + data).split(/\n+/),
+        l = data.length - 1,
+        i = 0;
+
+    for (; i < l; i++) {
+      try {
+        req.emit('log', JSON.parse(data[i]));
+      } catch (e) {
+        req.emit('error', e);
+      }
+    }
+
+    buff = data[l];
+  });
+
+  return req;
 };
 
 //
@@ -176,10 +248,10 @@ Client.prototype.upload = function (uri, contentType, file, callback, success) {
 
       success(response, result);
     });
- 
+
     out.on('request', function(request) {
       var buffer = 0;
-      request.on('socket', function(socket) { 
+      request.on('socket', function(socket) {
         var id = setInterval(function() {
           var data = socket._bytesDispatched || (socket.socket && socket.socket._bytesDispatched);
           emitter.emit('data', data - buffer);
@@ -187,7 +259,7 @@ Client.prototype.upload = function (uri, contentType, file, callback, success) {
           if(buffer >= stat.size) {
             clearInterval(id);
             emitter.emit('end');
-          } 
+          }
         },100);
       });
     });
